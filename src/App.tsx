@@ -3013,7 +3013,7 @@ function App() {
                             onChange={(event) =>
                               setSubmitterName(event.target.value)
                             }
-                            placeholder="例：山田　太郎"
+                            placeholder="例：山田太郎"
                           />
                         </div>
                       </div>
