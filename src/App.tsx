@@ -105,6 +105,7 @@ type LegacyReceipt = {
   category?: ReceiptCategory;
   memo?: string;
   image?: Blob | null;
+  imagePath?: string | null;
   createdAt?: string;
   updatedAt?: string;
   submitterRecord?: ReceiptRecord | null;
@@ -218,6 +219,50 @@ function getLocalDateString(): string {
   );
 
   return localDate.toISOString().slice(0, 10);
+}
+
+function buildMemoWithSubmitterInfo(params: {
+  studentId: string;
+  submitterName: string;
+  memo: string;
+}): string {
+  const trimmedMemo = params.memo.trim();
+
+  if (!trimmedMemo) {
+    return [
+      "【提出者情報】",
+      `学籍番号：${params.studentId.trim()}`,
+      `氏名：${params.submitterName.trim()}`,
+    ].join("\n");
+  }
+
+  return [
+    "【提出者情報】",
+    `学籍番号：${params.studentId.trim()}`,
+    `氏名：${params.submitterName.trim()}`,
+    "",
+    "【補足メモ】",
+    trimmedMemo,
+  ].join("\n");
+}
+
+function parseMemoWithSubmitterInfo(memoText: string): {
+  studentId: string;
+  submitterName: string;
+  memo: string;
+} {
+  const studentIdMatch = memoText.match(/学籍番号：(.+)/);
+  const submitterNameMatch = memoText.match(/氏名：(.+)/);
+  const memoParts = memoText.split("【補足メモ】");
+
+  return {
+    studentId: studentIdMatch?.[1]?.trim() ?? "",
+    submitterName: submitterNameMatch?.[1]?.trim() ?? "",
+    memo:
+      memoParts.length > 1
+        ? memoParts.slice(1).join("【補足メモ】").trim()
+        : "",
+  };
 }
 
 function getCurrentMonthString(): string {
@@ -473,6 +518,7 @@ function normalizeReceipt(rawReceipt: LegacyReceipt): Receipt {
       category: rawReceipt.category ?? "未分類",
       memo: rawReceipt.memo ?? "",
       image: rawReceipt.image ?? null,
+      imagePath: rawReceipt.imagePath ?? null,
       registeredAt: rawReceipt.createdAt ?? currentTime,
       updatedAt: rawReceipt.updatedAt ?? currentTime,
     },
@@ -576,9 +622,15 @@ function App() {
     useState("");
 
   const [category, setCategory] =
-    useState<ReceiptCategory | "">("");
+    useState<ReceiptCategory | "">("未分類");
 
   const [memo, setMemo] =
+    useState("");
+
+  const [studentId, setStudentId] =
+    useState("");
+
+  const [submitterName, setSubmitterName] =
     useState("");
 
   const [image, setImage] =
@@ -915,8 +967,10 @@ function App() {
     setStoreName("");
     setPurchaseDate(getLocalDateString());
     setAmount("");
-    setCategory("");
+    setCategory("未分類");
     setMemo("");
+    setStudentId("");
+    setSubmitterName("");
     setImage(null);
     setIsCompressingImage(false);
     setImageCompressionInfo("");
@@ -1620,6 +1674,18 @@ function App() {
       return;
     }
 
+    if (effectiveFormSide === "submitter") {
+      if (!studentId.trim()) {
+        alert("学籍番号を入力してください。");
+        return;
+      }
+
+      if (!submitterName.trim()) {
+        alert("氏名を入力してください。");
+        return;
+      }
+    }
+
     if (!storeName.trim()) {
       alert("店名を入力してください。");
       return;
@@ -1642,12 +1708,21 @@ function App() {
 
     const currentTime = new Date().toISOString();
 
+    const memoToSave =
+      effectiveFormSide === "submitter"
+        ? buildMemoWithSubmitterInfo({
+            studentId,
+            submitterName,
+            memo,
+          })
+        : memo.trim();
+
     const newRecord: ReceiptRecord = {
       storeName: storeName.trim(),
       purchaseDate,
       amount: Number(amount),
       category,
-      memo: memo.trim(),
+      memo: memoToSave,
       image,
       registeredAt: currentTime,
       updatedAt: currentTime,
@@ -1665,6 +1740,7 @@ function App() {
 
     const recordToSave: ReceiptRecord = {
       ...newRecord,
+      imagePath: existingSideRecord?.imagePath ?? null,
       registeredAt: existingSideRecord?.registeredAt ?? currentTime,
     };
 
@@ -1768,8 +1844,20 @@ function App() {
     setStoreName(record?.storeName ?? "");
     setPurchaseDate(record?.purchaseDate ?? getLocalDateString());
     setAmount(record ? String(record.amount) : "");
-    setCategory(record?.category ?? "");
-    setMemo(record?.memo ?? "");
+    setCategory(record?.category ?? "未分類");
+
+    if (side === "submitter" && record?.memo) {
+      const parsedMemo = parseMemoWithSubmitterInfo(record.memo);
+
+      setStudentId(parsedMemo.studentId);
+      setSubmitterName(parsedMemo.submitterName);
+      setMemo(parsedMemo.memo);
+    } else {
+      setStudentId("");
+      setSubmitterName("");
+      setMemo(record?.memo ?? "");
+    }
+
     setImage(record?.image ?? null);
     setIsCompressingImage(false);
     setImageCompressionInfo("");
@@ -2595,7 +2683,7 @@ function App() {
               <h4>提出者</h4>
 
               <p>
-                提出者は、自分が提出する領収書について、画像、日付、店名、カテゴリ、金額、メモを登録します。提出者は照合一覧や月別集計を確認できますが、会計側の記録やプロジェクト設定は変更できません。
+                提出者は、自分が提出する領収書について、学籍番号、氏名、画像、日付、店名、カテゴリ、金額、メモを登録します。提出者は照合一覧や月別集計を確認できますが、会計側の記録やプロジェクト設定は変更できません。
               </p>
 
               <h4>会計担当者</h4>
@@ -2892,8 +2980,52 @@ function App() {
                     </div>
                   </section>
 
+                  {effectiveFormSide === "submitter" && (
+                    <section className="form-section">
+                      <h3>提出者情報</h3>
+
+                      <p className="helper-message">
+                        会計確認のため、学籍番号と氏名を必ず入力してください。
+                      </p>
+
+                      <div className="form-grid">
+                        <div>
+                          <label htmlFor="studentId">学籍番号</label>
+
+                          <input
+                            id="studentId"
+                            type="text"
+                            value={studentId}
+                            onChange={(event) =>
+                              setStudentId(event.target.value)
+                            }
+                            placeholder="例：123456"
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="submitterName">氏名</label>
+
+                          <input
+                            id="submitterName"
+                            type="text"
+                            value={submitterName}
+                            onChange={(event) =>
+                              setSubmitterName(event.target.value)
+                            }
+                            placeholder="例：椋野航介"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
                   <section className="form-section">
                     <h3>補足メモ</h3>
+
+                    <p className="helper-message">
+                      補足メモは任意です。用途、購入理由、共有事項などがあれば記入してください。
+                    </p>
 
                     <textarea
                       id="memo"
@@ -2901,7 +3033,7 @@ function App() {
                       onChange={(event) =>
                         setMemo(event.target.value)
                       }
-                      placeholder="用途や補足など"
+                      placeholder="例：ビンゴ大会の景品購入"
                     />
                   </section>
 
@@ -3339,7 +3471,7 @@ function App() {
               <h3>2. 取得する情報</h3>
 
               <p>
-                委員会は、領収書管理システムの利用にあたり、年度、プロジェクト名、ユーザーの役割情報、領収書画像、日付、店名、カテゴリ、金額、メモ、登録・編集・確認に関する操作履歴、全体パスワードおよび役割別パスワードによる入室に必要な情報、アクセス日時、利用端末に関する情報、その他会計確認および運営管理に必要な情報を取得する場合があります。
+                委員会は、領収書管理システムの利用にあたり、年度、プロジェクト名、ユーザーの役割情報、領収書画像、日付、店名、カテゴリ、金額、メモ、学籍番号、氏名、登録・編集・確認に関する操作履歴、全体パスワードおよび役割別パスワードによる入室に必要な情報、アクセス日時、利用端末に関する情報、その他会計確認および運営管理に必要な情報を取得する場合があります。
               </p>
             </section>
 
