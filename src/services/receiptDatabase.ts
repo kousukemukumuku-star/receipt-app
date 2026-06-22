@@ -182,25 +182,29 @@ async function uploadReceiptImage(params: {
   projectId: string;
   receiptId: string | null;
   side: ReceiptSide;
-  image: Blob | null;
+  record: ReceiptRecord;
 }): Promise<string | null> {
-  if (!params.image) {
-    return null;
+  if (!params.record.image) {
+    return params.record.imagePath ?? null;
+  }
+
+  if (params.record.imagePath) {
+    return params.record.imagePath;
   }
 
   const imagePath = createStorageImagePath({
     projectId: params.projectId,
     receiptId: params.receiptId,
     side: params.side,
-    image: params.image,
+    image: params.record.image,
   });
 
   const { error } = await supabase.storage
     .from(RECEIPT_IMAGE_BUCKET)
-    .upload(imagePath, params.image, {
+    .upload(imagePath, params.record.image, {
       cacheControl: "3600",
       upsert: true,
-      contentType: params.image.type || "image/jpeg",
+      contentType: params.record.image.type || "image/jpeg",
     });
 
   if (error) {
@@ -233,6 +237,34 @@ async function downloadImageBlob(
   return data;
 }
 
+async function removeReceiptImagesFromStorage(
+  imagePaths: Array<string | null | undefined>
+): Promise<void> {
+  const uniqueImagePaths = Array.from(
+    new Set(
+      imagePaths.filter(
+        (imagePath): imagePath is string =>
+          typeof imagePath === "string" && imagePath.trim() !== ""
+      )
+    )
+  );
+
+  if (uniqueImagePaths.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.storage
+    .from(RECEIPT_IMAGE_BUCKET)
+    .remove(uniqueImagePaths);
+
+  if (error) {
+    console.warn(
+      "領収書データは削除されましたが、Storage画像の削除に失敗しました。",
+      error.message
+    );
+  }
+}
+
 function createRecord(params: {
   storeName: string | null;
   purchaseDate: string | null;
@@ -240,6 +272,7 @@ function createRecord(params: {
   category: string | null;
   memo: string | null;
   image: Blob | null;
+  imagePath: string | null;
   registeredAt: string | null;
   updatedAt: string | null;
 }): ReceiptRecord | null {
@@ -250,6 +283,7 @@ function createRecord(params: {
     params.category !== null ||
     params.memo !== null ||
     params.image !== null ||
+    params.imagePath !== null ||
     params.registeredAt !== null;
 
   if (!hasRecord) {
@@ -263,6 +297,7 @@ function createRecord(params: {
     category: toReceiptCategory(params.category),
     memo: params.memo ?? "",
     image: params.image,
+    imagePath: params.imagePath,
     registeredAt: params.registeredAt ?? "",
     updatedAt: params.updatedAt ?? "",
   };
@@ -299,6 +334,7 @@ async function convertSupabaseReceiptToReceipt(params: {
     category: params.row.submitter_category,
     memo: params.row.submitter_memo,
     image: submitterImage,
+    imagePath: params.row.submitter_image_path,
     registeredAt: params.row.submitter_registered_at,
     updatedAt: params.row.submitter_updated_at,
   });
@@ -310,6 +346,7 @@ async function convertSupabaseReceiptToReceipt(params: {
     category: params.row.accountant_category,
     memo: params.row.accountant_memo,
     image: accountantImage,
+    imagePath: params.row.accountant_image_path,
     registeredAt: params.row.accountant_registered_at,
     updatedAt: params.row.accountant_updated_at,
   });
@@ -351,6 +388,7 @@ function areRecordsEquivalent(
     first.amount === second.amount &&
     first.category === second.category &&
     first.memo === second.memo &&
+    first.imagePath === second.imagePath &&
     firstImageSize === secondImageSize &&
     firstImageType === secondImageType
   );
@@ -421,6 +459,32 @@ async function findExistingReceipt(
   );
 }
 
+async function findReceiptByReceiptId(
+  receiptId: string
+): Promise<Receipt | null> {
+  const projectIds = getStoredProjectIds();
+
+  for (const projectId of projectIds) {
+    try {
+      const receipts = await getReceiptsForProject(projectId);
+      const targetReceipt = receipts.find(
+        (receipt) => receipt.id === receiptId
+      );
+
+      if (targetReceipt) {
+        return targetReceipt;
+      }
+    } catch (error) {
+      console.warn(
+        `プロジェクト ${projectId} の領収書検索に失敗しました。`,
+        error
+      );
+    }
+  }
+
+  return null;
+}
+
 async function saveSingleRecord(params: {
   receiptId: string | null;
   projectId: string;
@@ -434,7 +498,7 @@ async function saveSingleRecord(params: {
     projectId: params.projectId,
     receiptId: params.receiptId,
     side: params.side,
-    image: params.record.image,
+    record: params.record,
   });
 
   const { data, error } = await supabase.rpc("save_receipt_record", {
@@ -462,32 +526,6 @@ async function saveSingleRecord(params: {
   }
 
   return rows[0];
-}
-
-async function findReceiptProjectIdByReceiptId(
-  receiptId: string
-): Promise<string | null> {
-  const projectIds = getStoredProjectIds();
-
-  for (const projectId of projectIds) {
-    try {
-      const receipts = await getReceiptsForProject(projectId);
-      const targetReceipt = receipts.find(
-        (receipt) => receipt.id === receiptId
-      );
-
-      if (targetReceipt) {
-        return targetReceipt.projectId;
-      }
-    } catch (error) {
-      console.warn(
-        `プロジェクト ${projectId} の領収書検索に失敗しました。`,
-        error
-      );
-    }
-  }
-
-  return null;
 }
 
 export async function getAllReceipts(): Promise<Receipt[]> {
@@ -570,17 +608,24 @@ export async function deleteReceipt(
   receiptId: string
 ): Promise<void> {
   const sitePassword = requireSitePassword();
-  const projectId = await findReceiptProjectIdByReceiptId(receiptId);
 
-  if (!projectId) {
+  const targetReceipt = await findReceiptByReceiptId(receiptId);
+
+  if (!targetReceipt) {
     throw new Error("削除対象の領収書が見つかりません。");
   }
 
-  const projectPassword = requireProjectPassword(projectId);
+  const projectPassword =
+    requireProjectPassword(targetReceipt.projectId);
+
+  const imagePathsToDelete = [
+    targetReceipt.submitterRecord?.imagePath,
+    targetReceipt.accountantRecord?.imagePath,
+  ];
 
   const { error } = await supabase.rpc("delete_receipt", {
     p_site_password: sitePassword,
-    p_project_id: projectId,
+    p_project_id: targetReceipt.projectId,
     p_project_password: projectPassword,
     p_receipt_id: receiptId,
   });
@@ -588,4 +633,6 @@ export async function deleteReceipt(
   if (error) {
     throw new Error(error.message);
   }
+
+  await removeReceiptImagesFromStorage(imagePathsToDelete);
 }

@@ -39,6 +39,13 @@ export type ReceiptRecord = {
   category: ReceiptCategory;
   memo: string;
   image: Blob | null;
+
+  /**
+   * Supabase Storage 上の画像パス。
+   * 画像削除時にStorage側のファイルも削除するために保持する。
+   */
+  imagePath?: string | null;
+
   registeredAt: string;
   updatedAt: string;
 };
