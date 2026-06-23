@@ -3236,8 +3236,6 @@ function App() {
     </div>
   </div>
 </section>
-                </section>
-
                 {isLoading ? (
                   <p>領収書を読み込んでいます…</p>
                 ) : filteredReceipts.length === 0 ? (
