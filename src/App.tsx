@@ -2446,208 +2446,222 @@ function App() {
       </header>
 
       <main>
-        {activeView === "projects" && (
-          <section>
-            <h2>プロジェクト管理</h2>
+       {activeView === "projects" && (
+  <section>
+    <h2>プロジェクト管理</h2>
 
-            <section>
-              <h3>最初に行うこと</h3>
+    <section className="project-guide-panel">
+      <h3>プロジェクトに入室する</h3>
 
-              <p>
-                このシステムでは、まず年度を選択し、その年度に紐づくプロジェクトを作成、または既存プロジェクトに入室します。
-                プロジェクトを開くと、役割に応じて領収書登録、照合一覧、月別集計などの操作メニューが表示されます。
-              </p>
+      <p>
+        年度を選択し、該当するプロジェクトのパスワードを入力して入室してください。
+        入室後、役割に応じて領収書登録、照合一覧、月別集計などの機能が表示されます。
+      </p>
+    </section>
 
-              <p>
-                画面上部で年度を切り替えると、その年度のプロジェクトだけが表示されます。
-                別年度に切り替えた場合、開いているプロジェクトは自動的に閉じられます。
-              </p>
-            </section>
+    <section>
+      <h3>{selectedFiscalYear}年度のプロジェクト一覧</h3>
 
-            <section>
-              <h3>新規プロジェクト作成</h3>
-
-              <p>
-                プロジェクトごとに、年度と、提出者・会計担当者・管理者の3種類のパスワードを設定します。
-                それぞれの役割に応じて、使える機能が変わります。
-              </p>
-
-              <form onSubmit={handleCreateProject}>
+      {isLoading ? (
+        <p>プロジェクトを読み込んでいます…</p>
+      ) : selectedFiscalYearProjects.length === 0 ? (
+        <p>
+          {selectedFiscalYear}年度のプロジェクトはまだ作成されていません。
+        </p>
+      ) : (
+        <div className="project-list">
+          {selectedFiscalYearProjects.map((project) => (
+            <article key={project.id} className="project-card">
+              <div className="project-card-header">
                 <div>
-                  <label htmlFor="projectFiscalYear">
-                    年度
-                  </label>
+                  <h4>{project.name}</h4>
 
-                  <select
-                    id="projectFiscalYear"
-                    value={projectFiscalYear}
-                    onChange={(event) =>
-                      setProjectFiscalYear(event.target.value)
-                    }
-                  >
-                    {fiscalYearOptions.map((year) => (
-                      <option key={year} value={year}>
-                        {year}年度
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <p>年度：{project.fiscalYear}年度</p>
 
-                <div>
-                  <label htmlFor="projectName">
-                    プロジェクト名
-                  </label>
-
-                  <input
-                    id="projectName"
-                    type="text"
-                    value={projectName}
-                    onChange={(event) =>
-                      setProjectName(event.target.value)
-                    }
-                    placeholder="例：プリムローズ祭 2026"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="submitterKey">
-                    提出者用パスワード
-                  </label>
-
-                  <p className="helper-message">
-                    領収書を提出する人に共有します。提出者は、自分の領収書情報と画像を登録できます。
+                  <p>
+                    作成日：
+                    {project.createdAt.slice(0, 10)}
                   </p>
-
-                  <input
-                    id="submitterKey"
-                    type="password"
-                    value={submitterKey}
-                    onChange={(event) =>
-                      setSubmitterKey(event.target.value)
-                    }
-                    placeholder="提出者が登録するときに使うパスワード"
-                  />
                 </div>
 
-                <div>
-                  <label htmlFor="accountantKey">
-                    会計担当者用パスワード
-                  </label>
-
-                  <p className="helper-message">
-                    領収書の内容を確認・照合する人に共有します。会計担当者は、会計側の記録登録と確認完了ができます。
-                  </p>
-
-                  <input
-                    id="accountantKey"
-                    type="password"
-                    value={accountantKey}
-                    onChange={(event) =>
-                      setAccountantKey(event.target.value)
-                    }
-                    placeholder="会計担当者が確認するときに使うパスワード"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="adminKey">
-                    管理者用パスワード
-                  </label>
-
-                  <p className="helper-message">
-                    削除、確認解除、CSV出力、設定変更を行う責任者のみ使用します。安易に共有しないでください。
-                  </p>
-
-                  <input
-                    id="adminKey"
-                    type="password"
-                    value={adminKey}
-                    onChange={(event) =>
-                      setAdminKey(event.target.value)
-                    }
-                    placeholder="削除や管理に使うパスワード"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isProjectSaving}
+                <span
+                  className={
+                    selectedProjectId === project.id
+                      ? "project-status-badge active"
+                      : "project-status-badge"
+                  }
                 >
-                  {isProjectSaving
-                    ? "作成中…"
-                    : "プロジェクトを作成"}
-                </button>
-              </form>
-            </section>
+                  {selectedProjectId === project.id
+                    ? `入室中（${getRoleLabel(currentRole)}）`
+                    : "未入室"}
+                </span>
+              </div>
 
-            <section>
-              <h3>{selectedFiscalYear}年度のプロジェクト一覧</h3>
+              <div className="project-access-area">
+                <label htmlFor={`key-${project.id}`}>
+                  パスワード
+                </label>
 
-              {isLoading ? (
-                <p>プロジェクトを読み込んでいます…</p>
-              ) : selectedFiscalYearProjects.length === 0 ? (
-                <p>
-                  {selectedFiscalYear}年度のプロジェクトはまだ作成されていません。
-                </p>
-              ) : (
-                selectedFiscalYearProjects.map((project) => (
-                  <article key={project.id} className="project-card">
-                    <h4>{project.name}</h4>
+                <input
+                  id={`key-${project.id}`}
+                  type="password"
+                  value={projectAccessKeys[project.id] ?? ""}
+                  onChange={(event) =>
+                    setProjectAccessKeys(
+                      (currentKeys) => ({
+                        ...currentKeys,
+                        [project.id]: event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="役割別パスワードを入力"
+                />
 
-                    <p>年度：{project.fiscalYear}年度</p>
+                <div className="project-card-actions">
+                  <button
+                    type="button"
+                    className="primary-action-button"
+                    onClick={() => void handleOpenProject(project)}
+                  >
+                    入室する
+                  </button>
 
-                    <p>
-                      作成日：
-                      {project.createdAt.slice(0, 10)}
-                    </p>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => void handleDeleteProject(project)}
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
 
-                    <p>
-                      状態：
-                      {selectedProjectId === project.id
-                        ? `入室中（${getRoleLabel(currentRole)}）`
-                        : "未入室"}
-                    </p>
+    <details className="create-project-details">
+      <summary>＋ 新規プロジェクトを作成する</summary>
 
-                    <div>
-                      <label htmlFor={`key-${project.id}`}>
-                        パスワードを入力
-                      </label>
+      <section className="create-project-panel">
+        <h3>新規プロジェクト作成</h3>
 
-                      <input
-                        id={`key-${project.id}`}
-                        type="password"
-                        value={projectAccessKeys[project.id] ?? ""}
-                        onChange={(event) =>
-                          setProjectAccessKeys(
-                            (currentKeys) => ({
-                              ...currentKeys,
-                              [project.id]: event.target.value,
-                            })
-                          )
-                        }
-                        placeholder="提出者用・会計担当者用・管理者用パスワード"
-                      />
-                    </div>
+        <p>
+          新しい年度・企画を管理する場合だけ作成してください。
+          普段の利用では、上のプロジェクト一覧から入室します。
+        </p>
 
-                    <button
-                      type="button"
-                      onClick={() => void handleOpenProject(project)}
-                    >
-                      この役割で入室
-                    </button>
+        <form onSubmit={handleCreateProject}>
+          <div>
+            <label htmlFor="projectFiscalYear">
+              年度
+            </label>
 
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteProject(project)}
-                    >
-                      プロジェクト削除
-                    </button>
-                  </article>
-                ))
-              )}
-            </section>
-          </section>
-        )}
+            <select
+              id="projectFiscalYear"
+              value={projectFiscalYear}
+              onChange={(event) =>
+                setProjectFiscalYear(event.target.value)
+              }
+            >
+              {fiscalYearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}年度
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="projectName">
+              プロジェクト名
+            </label>
+
+            <input
+              id="projectName"
+              type="text"
+              value={projectName}
+              onChange={(event) =>
+                setProjectName(event.target.value)
+              }
+              placeholder="例：プリムローズ祭 2026"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="submitterKey">
+              提出者用パスワード
+            </label>
+
+            <p className="helper-message">
+              領収書を提出する人に共有します。
+            </p>
+
+            <input
+              id="submitterKey"
+              type="password"
+              value={submitterKey}
+              onChange={(event) =>
+                setSubmitterKey(event.target.value)
+              }
+              placeholder="提出者用パスワード"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="accountantKey">
+              会計担当者用パスワード
+            </label>
+
+            <p className="helper-message">
+              領収書の照合・確認を行う人に共有します。
+            </p>
+
+            <input
+              id="accountantKey"
+              type="password"
+              value={accountantKey}
+              onChange={(event) =>
+                setAccountantKey(event.target.value)
+              }
+              placeholder="会計担当者用パスワード"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="adminKey">
+              管理者用パスワード
+            </label>
+
+            <p className="helper-message">
+              削除、確認解除、CSV出力、設定変更を行う責任者のみ使用します。
+            </p>
+
+            <input
+              id="adminKey"
+              type="password"
+              value={adminKey}
+              onChange={(event) =>
+                setAdminKey(event.target.value)
+              }
+              placeholder="管理者用パスワード"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isProjectSaving}
+          >
+            {isProjectSaving
+              ? "作成中…"
+              : "プロジェクトを作成"}
+          </button>
+        </form>
+      </section>
+    </details>
+  </section>
+)}
 
         {activeView === "guide" && (
           <section>
