@@ -3094,86 +3094,148 @@ function App() {
                   {selectedProject.fiscalYear}年度 {selectedProject.name}
                 </p>
 
-                <section>
-                  <h3>検索・絞り込み</h3>
+                <section className="filter-panel">
+  <h3>検索・絞り込み</h3>
 
-                  <input
-                    type="search"
-                    value={searchText}
-                    onChange={(event) =>
-                      setSearchText(event.target.value)
-                    }
-                    placeholder="店名・メモ・カテゴリで検索"
-                  />
+  <div className="search-row">
+    <input
+      type="search"
+      value={searchText}
+      onChange={(event) =>
+        setSearchText(event.target.value)
+      }
+      placeholder="店名・メモ・カテゴリで検索"
+    />
+  </div>
 
-                  <select
-                    value={filterStatus}
-                    onChange={(event) =>
-                      setFilterStatus(
-                        event.target.value as ReceiptStatusFilter
-                      )
-                    }
-                  >
-                    <option value="">すべての状態</option>
-                    <option value="submitterOnly">提出者側のみ</option>
-                    <option value="accountantOnly">会計側のみ</option>
-                    <option value="mismatched">相違あり</option>
-                    <option value="matched">双方一致</option>
-                    <option value="confirmed">確認済み</option>
-                  </select>
+  <div className="status-filter-buttons">
+    {[
+      {
+        value: "",
+        label: "すべて",
+        count: statusCounts.all,
+      },
+      {
+        value: "submitterOnly",
+        label: "提出者側のみ",
+        count: statusCounts.submitterOnly,
+      },
+      {
+        value: "accountantOnly",
+        label: "会計側のみ",
+        count: statusCounts.accountantOnly,
+      },
+      {
+        value: "mismatched",
+        label: "相違あり",
+        count: statusCounts.mismatched,
+      },
+      {
+        value: "matched",
+        label: "双方一致",
+        count: statusCounts.matched,
+      },
+      {
+        value: "confirmed",
+        label: "確認済み",
+        count: statusCounts.confirmed,
+      },
+    ].map((statusButton) => (
+      <button
+        key={statusButton.label}
+        type="button"
+        className={
+          filterStatus === statusButton.value
+            ? "status-filter-button active"
+            : "status-filter-button"
+        }
+        onClick={() =>
+          setFilterStatus(
+            statusButton.value as ReceiptStatusFilter
+          )
+        }
+      >
+        <span>{statusButton.label}</span>
+        <strong>{statusButton.count}</strong>
+      </button>
+    ))}
+  </div>
 
-                  <select
-                    value={filterCategory}
-                    onChange={(event) =>
-                      setFilterCategory(
-                        event.target.value as ReceiptCategory | ""
-                      )
-                    }
-                  >
-                    <option value="">すべてのカテゴリ</option>
+  <div className="filter-grid">
+    <div>
+      <label htmlFor="filterCategory">
+        カテゴリ
+      </label>
 
-                    {receiptCategories.map((categoryName) => (
-                      <option
-                        key={categoryName}
-                        value={categoryName}
-                      >
-                        {categoryName}
-                      </option>
-                    ))}
-                  </select>
+      <select
+        id="filterCategory"
+        value={filterCategory}
+        onChange={(event) =>
+          setFilterCategory(
+            event.target.value as ReceiptCategory | ""
+          )
+        }
+      >
+        <option value="">すべてのカテゴリ</option>
 
-                  <input
-                    type="month"
-                    value={filterMonth}
-                    onChange={(event) =>
-                      setFilterMonth(event.target.value)
-                    }
-                  />
+        {receiptCategories.map((categoryName) => (
+          <option
+            key={categoryName}
+            value={categoryName}
+          >
+            {categoryName}
+          </option>
+        ))}
+      </select>
+    </div>
 
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                  >
-                    検索条件を解除
-                  </button>
+    <div>
+      <label htmlFor="filterMonth">
+        月
+      </label>
 
-                  <p>該当件数：{filteredReceipts.length}件</p>
+      <input
+        id="filterMonth"
+        type="month"
+        value={filterMonth}
+        onChange={(event) =>
+          setFilterMonth(event.target.value)
+        }
+      />
+    </div>
+  </div>
 
-                  <p>
-                    該当金額合計：¥
-                    {filteredTotalAmount.toLocaleString()}
-                  </p>
+  <div className="filter-result-row">
+    <div>
+      <p>該当件数：{filteredReceipts.length}件</p>
 
-                  {canExportCsv ? (
-                    <button
-                      type="button"
-                      onClick={handleExportCsv}
-                    >
-                      CSV出力
-                    </button>
-                  ) : (
-                    <p>CSV出力は管理者のみ使用できます。</p>
-                  )}
+      <p>
+        該当金額合計：¥
+        {filteredTotalAmount.toLocaleString()}
+      </p>
+    </div>
+
+    <div className="filter-actions">
+      <button
+        type="button"
+        onClick={clearFilters}
+      >
+        検索条件を解除
+      </button>
+
+      {canExportCsv ? (
+        <button
+          type="button"
+          onClick={handleExportCsv}
+        >
+          CSV出力
+        </button>
+      ) : (
+        <p>CSV出力は管理者のみ使用できます。</p>
+      )}
+    </div>
+  </div>
+</section>
                 </section>
 
                 {isLoading ? (

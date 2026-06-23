@@ -808,3 +808,101 @@ form {
     width: 100%;
   }
 }
+.filter-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.search-row input {
+  width: 100%;
+}
+
+.status-filter-buttons {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.status-filter-button {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  border: 1px solid #d8deea;
+  background: #ffffff;
+  color: #1d3461;
+  box-shadow: 0 10px 24px rgba(24, 32, 51, 0.05);
+}
+
+.status-filter-button span {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.status-filter-button strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.status-filter-button.active {
+  background: #1d3461;
+  color: #ffffff;
+  border-color: #1d3461;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.filter-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e7ebf3;
+}
+
+.filter-result-row p {
+  margin: 0.25rem 0;
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .status-filter-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .status-filter-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-result-row {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .filter-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions button {
+    width: 100%;
+  }
+}
